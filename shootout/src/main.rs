@@ -52,14 +52,6 @@ macro_rules! experiments {
 }
 
 fn main() {
-    use std::mem::size_of_val;
-    unsafe {
-        println!("            base {:4}", size_of_val(&Queue::<u64>::new(128)));
-        println!("           block {:4}", size_of_val(&Queue::<u64, _, _>::blocking(128)));
-        println!(" compact counter {:4}", size_of_val(&Queue::<u64, _, _>::compact_counter_blocking(128)));
-        println!("separate counter {:4}", size_of_val(&Queue::<u64, _, _>::separate_counter_blocking(128)));
-    }
-
     let args @ Args{..} = StructOpt::from_args();
     if args.rounds == 1 { println!("running 1 round, {} count, window {}.", args.count, args.window) }
     else { println!("running {} rounds, {} count, window {}.", args.rounds, args.count, args.window) }
@@ -72,7 +64,8 @@ fn main() {
         experiments!(
             "spsc" => {
                 "mpsc", bench_spsc_throughput(mpsc::channel(), args.count as u64);
-                "stream", unsafe {let q = Box::new(Queue::new(128)); bench_spsc_throughput((&*q, &*q), args.count as u64)};
+                "shared", { let (tx, rx) = mpsc::channel(); tx.clone(); bench_spsc_throughput((tx, rx), args.count as u64)};
+                "stream", unsafe {let q = Box::new(Queue::new(128)); bench_spsc_throughput((&*q, &*q), args.count as u64) };
                 "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_spsc_throughput((&*q, &*q), args.count as u64)};
                 "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_spsc_throughput((&*q, &*q), args.count as u64)};
                 "sounter stream", unsafe {let q = Box::new(Queue::separate_counter_blocking(128)); bench_spsc_throughput((&*q, &*q), args.count as u64)};
@@ -89,6 +82,7 @@ fn main() {
 
             "spsc, windowed 1" => {
                 "mpsc", bench_blocking_spsc_throughput_windowed(mpsc::channel(), args.count as u64, args.window as u64, 1);
+                "shared", { let (tx, rx) = mpsc::channel(); tx.clone(); bench_blocking_spsc_throughput_windowed((tx, rx), args.count as u64, args.window as u64, 1) };
                 "stream", unsafe {let q = Box::new(Queue::new(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
                 "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
                 "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
@@ -97,6 +91,7 @@ fn main() {
 
             "spsc, windowed w/2" => {
                 "mpsc", bench_blocking_spsc_throughput_windowed(mpsc::channel(), args.count as u64, args.window as u64, ack_window);
+                "shared", { let (tx, rx) = mpsc::channel(); tx.clone(); bench_blocking_spsc_throughput_windowed((tx, rx), args.count as u64, args.window as u64, ack_window) };
                 "stream", unsafe {let q = Box::new(Queue::new(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
                 "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
                 "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
@@ -105,6 +100,7 @@ fn main() {
 
             "blocking spsc" => {
                 "mpsc", bench_blocking_spsc_throughput(mpsc::channel(), args.count as u64);
+                "shared", { let (tx, rx) = mpsc::channel(); tx.clone(); bench_blocking_spsc_throughput((tx, rx), args.count as u64) };
                 "stream", unsafe {let q = Box::new(Queue::new(128)); bench_blocking_spsc_throughput((&*q, &*q), args.count as u64)};
                 "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_blocking_spsc_throughput((&*q, &*q), args.count as u64)};
                 "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_blocking_spsc_throughput((&*q, &*q), args.count as u64)};
@@ -122,6 +118,7 @@ fn main() {
 
             "blocking spsc, windowed 1" => {
                 "mpsc", bench_blocking_spsc_throughput_windowed(mpsc::channel(), args.count as u64, args.window as u64, 1);
+                "shared", { let (tx, rx) = mpsc::channel(); tx.clone(); bench_blocking_spsc_throughput_windowed((tx, rx), args.count as u64, args.window as u64, 1)};
                 "stream", unsafe {let q = Box::new(Queue::new(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
                 "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
                 "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
@@ -130,6 +127,7 @@ fn main() {
 
             "blocking spsc, windowed w/2" => {
                 "mpsc", bench_blocking_spsc_throughput_windowed(mpsc::channel(), args.count as u64, args.window as u64, ack_window);
+                "shared", { let (tx, rx) = mpsc::channel(); tx.clone(); bench_blocking_spsc_throughput_windowed((tx, rx) , args.count as u64, args.window as u64, ack_window)};
                 "stream", unsafe {let q = Box::new(Queue::new(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
                 "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
                 "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
