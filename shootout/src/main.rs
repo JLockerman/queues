@@ -52,9 +52,20 @@ macro_rules! experiments {
 }
 
 fn main() {
+    use std::mem::size_of_val;
+    unsafe {
+        println!("            base {:4}", size_of_val(&Queue::<u64>::new(128)));
+        println!("           block {:4}", size_of_val(&Queue::<u64, _, _>::blocking(128)));
+        println!(" compact counter {:4}", size_of_val(&Queue::<u64, _, _>::compact_counter_blocking(128)));
+        println!("separate counter {:4}", size_of_val(&Queue::<u64, _, _>::separate_counter_blocking(128)));
+    }
+
     let args @ Args{..} = StructOpt::from_args();
     if args.rounds == 1 { println!("running 1 round, {} count, window {}.", args.count, args.window) }
     else { println!("running {} rounds, {} count, window {}.", args.rounds, args.count, args.window) }
+
+    let mut ack_window = args.window as u64 / 2;
+    if ack_window % 2 != 0 { ack_window -= 1 };
 
     for round in 0..args.rounds {
         if args.rounds != 1 { println!("==== running round {} ====", round + 1) }
@@ -63,19 +74,66 @@ fn main() {
                 "mpsc", bench_spsc_throughput(mpsc::channel(), args.count as u64);
                 "stream", unsafe {let q = Box::new(Queue::new(128)); bench_spsc_throughput((&*q, &*q), args.count as u64)};
                 "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_spsc_throughput((&*q, &*q), args.count as u64)};
+                "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_spsc_throughput((&*q, &*q), args.count as u64)};
+                "sounter stream", unsafe {let q = Box::new(Queue::separate_counter_blocking(128)); bench_spsc_throughput((&*q, &*q), args.count as u64)};
             }
 
-            "spsc, interrupted" => {
+            /*"spsc, interrupted" => {
                 "mpsc", bench_spsc_throughput_interrupted(mpsc::channel(), args.count as u64);
                 "stream", unsafe {let q = Box::new(Queue::new(128)); bench_spsc_throughput_interrupted((&*q, &*q), args.count as u64)};
                 "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_spsc_throughput_interrupted((&*q, &*q), args.count as u64)};
+                "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_spsc_throughput_interrupted((&*q, &*q), args.count as u64)};
+                "sounter stream", unsafe {let q = Box::new(Queue::separate_counter_blocking(128)); bench_spsc_throughput_interrupted((&*q, &*q), args.count as u64)};
+            }*/
+
+
+            "spsc, windowed 1" => {
+                "mpsc", bench_blocking_spsc_throughput_windowed(mpsc::channel(), args.count as u64, args.window as u64, 1);
+                "stream", unsafe {let q = Box::new(Queue::new(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
+                "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
+                "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
+                "sounter stream", unsafe {let q = Box::new(Queue::separate_counter_blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
             }
 
+            "spsc, windowed w/2" => {
+                "mpsc", bench_blocking_spsc_throughput_windowed(mpsc::channel(), args.count as u64, args.window as u64, ack_window);
+                "stream", unsafe {let q = Box::new(Queue::new(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
+                "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
+                "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
+                "sounter stream", unsafe {let q = Box::new(Queue::separate_counter_blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
+            }
 
-            "spsc, windowed" => {
-                "mpsc", bench_spsc_throughput_windowed(mpsc::channel(), args.count as u64, args.window as u64);
-                "stream", unsafe {let q = Box::new(Queue::new(128)); bench_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64)};
-                "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64)};
+            "blocking spsc" => {
+                "mpsc", bench_blocking_spsc_throughput(mpsc::channel(), args.count as u64);
+                "stream", unsafe {let q = Box::new(Queue::new(128)); bench_blocking_spsc_throughput((&*q, &*q), args.count as u64)};
+                "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_blocking_spsc_throughput((&*q, &*q), args.count as u64)};
+                "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_blocking_spsc_throughput((&*q, &*q), args.count as u64)};
+                "sounter stream", unsafe {let q = Box::new(Queue::separate_counter_blocking(128)); bench_blocking_spsc_throughput((&*q, &*q), args.count as u64)};
+            }
+
+            /*"blocking spsc, interrupted" => {
+                "mpsc", bench_blocking_spsc_throughput_interrupted(mpsc::channel(), args.count as u64);
+                "stream", unsafe {let q = Box::new(Queue::new(128)); bench_blocking_spsc_throughput_interrupted((&*q, &*q), args.count as u64)};
+                "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_blocking_spsc_throughput_interrupted((&*q, &*q), args.count as u64)};
+                "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_blocking_spsc_throughput_interrupted((&*q, &*q), args.count as u64)};
+                "sounter stream", unsafe {let q = Box::new(Queue::separate_counter_blocking(128)); bench_blocking_spsc_throughput_interrupted((&*q, &*q), args.count as u64)};
+            }*/
+
+
+            "blocking spsc, windowed 1" => {
+                "mpsc", bench_blocking_spsc_throughput_windowed(mpsc::channel(), args.count as u64, args.window as u64, 1);
+                "stream", unsafe {let q = Box::new(Queue::new(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
+                "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
+                "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
+                "sounter stream", unsafe {let q = Box::new(Queue::separate_counter_blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, 1)};
+            }
+
+            "blocking spsc, windowed w/2" => {
+                "mpsc", bench_blocking_spsc_throughput_windowed(mpsc::channel(), args.count as u64, args.window as u64, ack_window);
+                "stream", unsafe {let q = Box::new(Queue::new(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
+                "blocking stream", unsafe {let q = Box::new(Queue::blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
+                "counter stream", unsafe {let q = Box::new(Queue::compact_counter_blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
+                "sounter stream", unsafe {let q = Box::new(Queue::separate_counter_blocking(128)); bench_blocking_spsc_throughput_windowed((&*q, &*q), args.count as u64, args.window as u64, ack_window)};
             }
         );
     }

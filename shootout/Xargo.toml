@@ -1,0 +1,16 @@
+
+[dependencies.std]
+stage = 0
+features = ["jemalloc", "panic-unwind"]
+
+[dependencies.term]
+stage = 1
+
+[dependencies.test]
+stage = 1
+
+[dependencies.syntax]
+stage = 2
+
+[dependencies.proc_macro]
+stage = 3

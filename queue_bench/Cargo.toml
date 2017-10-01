@@ -6,3 +6,8 @@ authors = ["Joshua Lockerman <>"]
 [dependencies]
 crossbeam = "0.3.0"
 queues = { path = ".." }
+
+[target.'cfg(linux)'.dependencies]
+nix = "0.9.0"
+num_cpus = "1.7.0"
+lazy_static = "0.2.9"
